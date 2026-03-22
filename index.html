@@ -3,59 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PriceGuard Debug Mode</title>
+    <title>PriceGuard Elite 🛡️</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; text-align: center; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-        .btn { background: #007bff; color: white; padding: 15px; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-size: 16px; }
-        #debugLog { background: #333; color: #0f0; padding: 10px; border-radius: 5px; margin-top: 20px; text-align: left; direction: ltr; font-size: 12px; display: none; overflow-x: auto; }
-        .error-msg { color: red; margin-top: 10px; font-weight: bold; }
+        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; text-align: center; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
+        .btn { background: #2563eb; color: white; padding: 15px; border: none; border-radius: 12px; width: 100%; cursor: pointer; font-weight: bold; }
+        #results { margin-top: 20px; text-align: right; }
+        .bad { color: #ef4444; font-weight: bold; }
+        .good { color: #22c55e; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>PriceGuard Debug 🛡️</h2>
-    <p>בדיקת חיבור ל-OpenAI</p>
+    <h1>PriceGuard Elite 🛡️</h1>
+    <p>בחר ספק והעלה חשבונית:</p>
     
-    <button class="btn" onclick="document.getElementById('fileInput').click()">העלה תמונה לבדיקה</button>
+    <select id="vendorSelect" style="width:100%; padding:12px; margin-bottom:20px; border-radius:10px;">
+        <option value="yevuley_sade">יבולי שדה טמרה</option>
+        <option value="tfuchan">תפוכן</option>
+    </select>
+
+    <button class="btn" onclick="document.getElementById('fileInput').click()">📁 בחר תמונה מהגלריה</button>
     <input type="file" id="fileInput" accept="image/*" style="display: none;">
 
-    <div id="status"></div>
-    <div id="debugLog"></div>
+    <div id="loader" style="display:none; margin-top:20px;">מנתח נתונים... 🧠</div>
+    <div id="results"></div>
 </div>
 
 <script>
-    // וודא שהמפתח הזה הוא בדיוק מה שקיבלת באתר של OpenAI
     const API_KEY = "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";
+
+    const MASTER_DATA = {
+        "yevuley_sade": { "חומוס": 150, "סוכר": 48 },
+        "tfuchan": { "ציפס": 148.75, "בצל": 5.4 }
+    };
 
     document.getElementById('fileInput').onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const status = document.getElementById('status');
-        const debugLog = document.getElementById('debugLog');
-        
-        status.innerText = "שולח בקשה ל-OpenAI...";
-        debugLog.style.display = "none";
+        const loader = document.getElementById('loader');
+        const resultsDiv = document.getElementById('results');
+        loader.style.display = 'block';
+        resultsDiv.innerHTML = '';
 
         const reader = new FileReader();
         reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             
             try {
-                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                // שימוש ב-Proxy כדי לעקוף את חסימת ה-Failed to fetch
+                const proxy = "https://cors-anywhere.herokuapp.com/";
+                const url = "https://api.openai.com/v1/chat/completions";
+
+                const response = await fetch(proxy + url, {
                     method: "POST",
                     headers: {
                         "Authorization": `Bearer ${API_KEY.trim()}`,
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "x-requested-with": "XMLHttpRequest"
                     },
                     body: JSON.stringify({
                         model: "gpt-4o",
                         messages: [{
                             role: "user",
                             content: [
-                                { type: "text", text: "json: {test:true}" },
+                                { type: "text", text: "Extract items and prices to JSON: {\"items\":[{\"n\":\"name\",\"p\":1.0}]}" },
                                 { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                             ]
                         }],
@@ -64,17 +78,20 @@
                 });
 
                 const data = await response.json();
+                if (!response.ok) throw new Error(data.error?.message || "שגיאה");
+
+                const items = JSON.parse(data.choices[0].message.content).items;
+                const vId = document.getElementById('vendorSelect').value;
                 
-                if (!response.ok) {
-                    debugLog.style.display = "block";
-                    debugLog.innerText = "Status: " + response.status + "\n" + JSON.stringify(data, null, 2);
-                    status.innerHTML = "<div class='error-msg'>השרת החזיר שגיאה (ראה למטה)</div>";
-                } else {
-                    status.innerText = "החיבור הצליח! ה-AI זיהה את התמונה.";
-                    console.log(data);
-                }
+                items.forEach(item => {
+                    const mPrice = MASTER_DATA[vId][Object.keys(MASTER_DATA[vId]).find(k => item.n.includes(k))] || null;
+                    resultsDiv.innerHTML += `<div>${item.n}: ${item.p}₪ ${mPrice ? (item.p > mPrice ? '<span class="bad">חריגה!</span>' : '<span class="good">תקין</span>') : ''}</div><hr>`;
+                });
+
             } catch (err) {
-                status.innerText = "שגיאת רשת: " + err.message;
+                alert("שגיאה: " + err.message + "\n\nשים לב: אם מופיעה שגיאת חסימה, יש להיכנס לאתר cors-anywhere.herokuapp.com/corsdemo וללחוץ על הכפתור הכחול.");
+            } finally {
+                loader.style.display = 'none';
             }
         };
         reader.readAsDataURL(file);
