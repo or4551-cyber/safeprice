@@ -85,23 +85,43 @@
         reader.readAsDataURL(file);
     };
 
-    async function processInvoice(base64, vendorId) {
+   async function processInvoice(base64, vendorId) {
         try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            // הוספת פרוקסי לעקיפת חסימת הדפדפן (CORS)
+            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+            const targetUrl = "https://api.openai.com/v1/chat/completions";
+
+            const response = await fetch(targetUrl, { // אם ה-Proxy לא עובד, נסה להחזיר ל-targetUrl ישירות
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    'Authorization': `Bearer ${API_KEY}`, 
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     model: "gpt-4o",
                     messages: [{
                         role: "user",
                         content: [
-                            { type: "text", text: "Extract items and unit prices from this invoice. Return ONLY JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
+                            { type: "text", text: "Analyze this invoice. Extract items and unit prices. Return ONLY JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
                             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                         ]
                     }],
                     response_format: { type: "json_object" }
                 })
             });
+
+            if (response.status === 401) {
+                throw new Error("המפתח לא תקין או שאין יתרה כספית בחשבון OpenAI (Billing).");
+            }
+
+            const data = await response.json();
+            const extracted = JSON.parse(data.choices[0].message.content);
+            showResults(extracted.items, vendorId);
+        } catch (err) {
+            alert("שגיאה: " + err.message);
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+        }
 
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
