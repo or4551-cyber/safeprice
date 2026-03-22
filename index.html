@@ -3,52 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PriceGuard Elite 🛡️</title>
+    <title>PriceGuard Elite - Final Fix</title>
     <style>
         :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --bg: #f8fafc; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; line-height: 1.5; text-align: right; }
-        .container { max-width: 450px; margin: 0 auto; }
-        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-        h1 { margin: 0 0 10px; font-size: 24px; text-align: center; color: #0f172a; }
-        .setup-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #64748b; }
-        select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; font-size: 16px; text-align: right; }
-        .upload-area { border: 2px dashed #3b82f6; padding: 40px 20px; text-align: center; border-radius: 15px; cursor: pointer; background: #f0f7ff; }
-        #loader { display: none; text-align: center; margin: 20px 0; color: var(--primary); font-weight: bold; }
-        .result-item { border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
-        .row-header { display: flex; justify-content: space-between; font-weight: 700; }
-        .status-msg { font-size: 13px; margin-top: 5px; display: inline-block; padding: 2px 6px; border-radius: 4px; }
-        .bad { background: #fee2e2; color: var(--danger); }
-        .good { background: #dcfce7; color: var(--success); }
+        body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: right; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
+        .upload-area { border: 2px dashed #3b82f6; padding: 40px; text-align: center; border-radius: 15px; cursor: pointer; background: #f0f7ff; margin-top: 20px; }
+        #loader { display: none; color: var(--primary); font-weight: bold; margin: 20px 0; text-align: center; }
+        .result-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        .error-box { display: none; background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 12px; direction: ltr; text-align: left; white-space: pre-wrap; border: 1px solid #f87171; }
+        .bad { color: var(--danger); font-weight: bold; }
+        .good { color: var(--success); font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="card">
-        <h1>PriceGuard Elite 🛡️</h1>
-        <div class="setup-group">
-            <label>1. בחר ספק לבדיקה:</label>
-            <select id="vendorSelect">
-                <option value="yevuley_sade">יבולי שדה טמרה</option>
-                <option value="tfuchan">תפוכן</option>
-                <option value="elkayam">חטיפי אלקיים</option>
-                <option value="tahini">מוטיפוד (טחינה)</option>
-                <option value="teraplast">טרה פלסט</option>
-            </select>
-        </div>
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <span style="font-size: 30px; display: block;">📁</span>
-            <strong>לחץ להעלאת תמונת חשבונית</strong>
-            <input type="file" id="fileInput" accept="image/*" style="display: none;">
-        </div>
-        <div id="loader">ה-AI מנתח... נא להמתין 🧠</div>
-        <div id="results"></div>
+<div class="card">
+    <h1>PriceGuard Elite 🛡️</h1>
+    <div style="margin-bottom:15px">
+        <label>1. בחר ספק:</label>
+        <select id="vendorSelect" style="width:100%; padding:12px; border-radius:10px; border:1px solid #cbd5e1;">
+            <option value="yevuley_sade">יבולי שדה טמרה</option>
+            <option value="tfuchan">תפוכן</option>
+            <option value="elkayam">חטיפי אלקיים</option>
+            <option value="tahini">מוטיפוד (טחינה)</option>
+            <option value="teraplast">טרה פלסט</option>
+        </select>
     </div>
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <strong>📁 לחץ כאן להעלאת חשבונית</strong>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    </div>
+
+    <div id="loader">ה-AI מנתח... נא להמתין 🧠</div>
+    <div id="results"></div>
+    <div id="errorBox" class="error-box"></div>
 </div>
 
 <script>
-    const API_KEY = "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";
+    const API_KEY = "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";
 
     const MASTER_DATA = {
         "yevuley_sade": { "חומוס מקומי 25 קג": 150, "פול אנגלי": 120, "מלפפון במלח": 50, "פלפל שיפקה": 38, "לפת דלי": 60, "זיתים סורי": 115, "שמן סויה": 115, "סוכר": 48 },
@@ -61,11 +54,16 @@
     document.getElementById('fileInput').onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
         const vendor = document.getElementById('vendorSelect').value;
         const loader = document.getElementById('loader');
         const resultsDiv = document.getElementById('results');
+        const errorBox = document.getElementById('errorBox');
+        
         loader.style.display = 'block';
         resultsDiv.innerHTML = '';
+        errorBox.style.display = 'none';
+
         const reader = new FileReader();
         reader.onloadend = async () => {
             const base64Image = reader.result.split(',')[1];
@@ -87,7 +85,7 @@
                     messages: [{
                         role: "user",
                         content: [
-                            { type: "text", text: "Identify items and unit prices. Hebrew. Return JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
+                            { type: "text", text: "Analyze invoice. Hebrew. Return ONLY JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
                             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                         ]
                     }],
@@ -95,17 +93,18 @@
                 })
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const errorBody = await response.json();
-                console.error("OpenAI Error:", errorBody);
-                throw new Error(errorBody.error?.message || "שגיאה בגישה ל-OpenAI");
+                throw new Error(JSON.stringify(data, null, 2));
             }
 
-            const data = await response.json();
             const extracted = JSON.parse(data.choices[0].message.content);
             showResults(extracted.items, vendorId);
         } catch (err) {
-            alert("שגיאה: " + err.message);
+            const errorBox = document.getElementById('errorBox');
+            errorBox.style.display = 'block';
+            errorBox.innerText = "שגיאת OpenAI:\n" + err.message;
         } finally {
             document.getElementById('loader').style.display = 'none';
         }
@@ -114,24 +113,26 @@
     function showResults(items, vId) {
         const resultsDiv = document.getElementById('results');
         const master = MASTER_DATA[vId];
+
         items.forEach(item => {
             const matchKey = Object.keys(master).find(k => 
-                item.n.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(item.n.toLowerCase())
+                item.n.includes(k) || k.includes(item.n)
             );
             const mPrice = matchKey ? master[matchKey] : null;
-            const diff = mPrice ? (item.p - mPrice).toFixed(2) : 0;
+            
             resultsDiv.innerHTML += `
                 <div class="result-item">
-                    <div class="row-header">
-                        <span>${item.n}</span>
-                        <span>${item.p.toFixed(2)} ₪</span>
+                    <div>
+                        <strong>${item.n}</strong><br>
+                        ${mPrice ? 
+                            (item.p > mPrice ? `<span class="bad">חריגה! (מחירון: ${mPrice}₪)</span>` : `<span class="good">תקין ✅</span>`) 
+                            : `<span style="color:orange">לא במחירון</span>`}
                     </div>
-                    ${mPrice ? 
-                        (item.p > mPrice ? `<span class="status-msg bad">⚠️ חריגה (מחירון: ${mPrice}₪)</span>` : `<span class="status-msg good">✅ תקין</span>`) 
-                        : `<span class="status-msg" style="color:gray">❓ לא במחירון</span>`}
+                    <div style="font-weight:bold">${item.p.toFixed(2)} ₪</div>
                 </div>`;
         });
     }
 </script>
+
 </body>
 </html>
