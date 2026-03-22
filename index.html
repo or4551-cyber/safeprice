@@ -5,38 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PriceGuard Elite 🛡️</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #f8fafc; padding: 20px; text-align: center; }
-        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
-        .btn { background: #2563eb; color: white; padding: 15px; border: none; border-radius: 12px; width: 100%; cursor: pointer; font-weight: bold; }
+        body { font-family: system-ui, sans-serif; background: #f1f5f9; padding: 20px; text-align: center; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+        .upload-btn { background: #2563eb; color: white; padding: 15px; border: none; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; }
         #results { margin-top: 20px; text-align: right; }
-        .bad { color: #ef4444; font-weight: bold; }
-        .good { color: #22c55e; font-weight: bold; }
+        .error { color: #dc2626; background: #fee2e2; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1>PriceGuard Elite 🛡️</h1>
-    <p>בחר ספק והעלה חשבונית:</p>
+    <h2>PriceGuard Elite 🛡️</h2>
+    <p>סריקת חשבונית מול מחירון</p>
     
-    <select id="vendorSelect" style="width:100%; padding:12px; margin-bottom:20px; border-radius:10px;">
+    <select id="vendorSelect" style="width:100%; padding:10px; margin-bottom:15px; border-radius:8px;">
         <option value="yevuley_sade">יבולי שדה טמרה</option>
         <option value="tfuchan">תפוכן</option>
+        <option value="teraplast">טרה פלסט</option>
     </select>
 
-    <button class="btn" onclick="document.getElementById('fileInput').click()">📁 בחר תמונה מהגלריה</button>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📷 בחר תמונה מהגלריה</button>
     <input type="file" id="fileInput" accept="image/*" style="display: none;">
 
-    <div id="loader" style="display:none; margin-top:20px;">מנתח נתונים... 🧠</div>
+    <div id="loader" style="display:none; margin:20px;">מנתח... נא להמתין ⏳</div>
     <div id="results"></div>
+    <div id="debugBox" class="error"></div>
 </div>
 
 <script>
     const API_KEY = "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";
 
     const MASTER_DATA = {
-        "yevuley_sade": { "חומוס": 150, "סוכר": 48 },
-        "tfuchan": { "ציפס": 148.75, "בצל": 5.4 }
+        "yevuley_sade": { "חומוס": 150, "סוכר": 48, "פול": 120 },
+        "tfuchan": { "ציפס": 148.75, "בצל": 5.4 },
+        "teraplast": { "אשפתון": 125, "גביע": 150 }
     };
 
     document.getElementById('fileInput').onchange = async (e) => {
@@ -45,31 +47,29 @@
 
         const loader = document.getElementById('loader');
         const resultsDiv = document.getElementById('results');
+        const debugBox = document.getElementById('debugBox');
+        
         loader.style.display = 'block';
         resultsDiv.innerHTML = '';
+        debugBox.style.display = 'none';
 
         const reader = new FileReader();
         reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             
             try {
-                // שימוש ב-Proxy כדי לעקוף את חסימת ה-Failed to fetch
-                const proxy = "https://cors-anywhere.herokuapp.com/";
-                const url = "https://api.openai.com/v1/chat/completions";
-
-                const response = await fetch(proxy + url, {
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
                     method: "POST",
                     headers: {
                         "Authorization": `Bearer ${API_KEY.trim()}`,
-                        "Content-Type": "application/json",
-                        "x-requested-with": "XMLHttpRequest"
+                        "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
                         model: "gpt-4o",
                         messages: [{
                             role: "user",
                             content: [
-                                { type: "text", text: "Extract items and prices to JSON: {\"items\":[{\"n\":\"name\",\"p\":1.0}]}" },
+                                { type: "text", text: "List items and unit prices in JSON: {\"items\":[{\"n\":\"item\",\"p\":10.5}]}" },
                                 { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                             ]
                         }],
@@ -78,18 +78,27 @@
                 });
 
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error?.message || "שגיאה");
+                if (!response.ok) throw new Error(data.error?.message || "שגיאה בשרת");
 
                 const items = JSON.parse(data.choices[0].message.content).items;
                 const vId = document.getElementById('vendorSelect').value;
                 
                 items.forEach(item => {
-                    const mPrice = MASTER_DATA[vId][Object.keys(MASTER_DATA[vId]).find(k => item.n.includes(k))] || null;
-                    resultsDiv.innerHTML += `<div>${item.n}: ${item.p}₪ ${mPrice ? (item.p > mPrice ? '<span class="bad">חריגה!</span>' : '<span class="good">תקין</span>') : ''}</div><hr>`;
+                    const master = MASTER_DATA[vId];
+                    const matchKey = Object.keys(master).find(k => item.n.includes(k) || k.includes(item.n));
+                    const mPrice = matchKey ? master[matchKey] : null;
+                    
+                    resultsDiv.innerHTML += `
+                        <div style="border-bottom:1px solid #eee; padding:8px 0;">
+                            <strong>${item.n}</strong>: ${item.p}₪ 
+                            <br> ${mPrice ? (item.p > mPrice ? '<span style="color:red">⚠️ חריגה! מחירון: '+mPrice+'₪</span>' : '<span style="color:green">✅ תקין</span>') : '<span style="color:gray">❓ לא במחירון</span>'}
+                        </div>`;
                 });
 
             } catch (err) {
-                alert("שגיאה: " + err.message + "\n\nשים לב: אם מופיעה שגיאת חסימה, יש להיכנס לאתר cors-anywhere.herokuapp.com/corsdemo וללחוץ על הכפתור הכחול.");
+                debugBox.style.display = 'block';
+                debugBox.innerText = "תקלה: " + err.message;
+                console.error(err);
             } finally {
                 loader.style.display = 'none';
             }
