@@ -55,7 +55,8 @@
 </div>
 
 <script>
-    const API_KEY = "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";
+    // ה-API Key החדש שלך הוטמע כאן
+    const API_KEY = "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";
 
     const MASTER_DATA = {
         "yevuley_sade": { "חומוס מקומי 25 קג": 150, "פול אנגלי": 120, "מלפפון במלח": 50, "פלפל שיפקה": 38, "לפת דלי": 60, "זיתים סורי": 115, "שמן סויה": 115, "סוכר": 48 },
@@ -86,7 +87,6 @@
 
     async function processInvoice(base64, vendorId) {
         try {
-            // שימוש ב-targetUrl ישיר - אם עדיין יש Failed to fetch, יש להפעיל את ה-CORS Proxy
             const targetUrl = "https://api.openai.com/v1/chat/completions";
 
             const response = await fetch(targetUrl, {
@@ -110,7 +110,10 @@
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error.message || "שגיאה בגישה ל-OpenAI");
+                if (response.status === 401) {
+                    throw new Error("מפתח לא מורשה. וודא שהטענת כסף (Credits) בחשבון OpenAI.");
+                }
+                throw new Error(errorData.error.message || "שגיאה בגישה לשרת");
             }
 
             const data = await response.json();
