@@ -5,41 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PriceGuard Elite 🛡️</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #f1f5f9; padding: 20px; text-align: center; }
-        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-        .upload-btn { background: #2563eb; color: white; padding: 15px; border: none; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; }
-        #results { margin-top: 20px; text-align: right; font-size: 14px; }
-        .status { padding: 10px; border-radius: 8px; margin-top: 10px; font-weight: bold; display: none; }
-        .error { background: #fee2e2; color: #dc2626; display: block; }
-        .success { background: #dcfce7; color: #16a34a; display: block; }
+        :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --bg: #f8fafc; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: right; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
+        .upload-area { border: 2px dashed #3b82f6; padding: 40px; text-align: center; border-radius: 15px; cursor: pointer; background: #f0f7ff; margin-top: 20px; }
+        #loader { display: none; color: var(--primary); font-weight: bold; margin: 20px 0; text-align: center; }
+        .result-item { border-bottom: 1px solid #eee; padding: 12px 0; display: flex; justify-content: space-between; align-items: center; }
+        .error-msg { background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 13px; display: none; direction: ltr; text-align: left; border: 1px solid #f87171; }
+        .bad { color: var(--danger); font-weight: bold; }
+        .good { color: var(--success); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>PriceGuard Elite 🛡️</h2>
-    <p>סריקת חשבונית מול מחירון</p>
+    <h1>PriceGuard Elite 🛡️</h1>
+    <div style="margin-bottom:15px">
+        <label>1. בחר ספק לבדיקה:</label>
+        <select id="vendorSelect" style="width:100%; padding:12px; border-radius:10px; border:1px solid #cbd5e1;">
+            <option value="yevuley_sade">יבולי שדה טמרה</option>
+            <option value="tfuchan">תפוכן</option>
+            <option value="elkayam">חטיפי אלקיים</option>
+            <option value="tahini">מוטיפוד (טחינה)</option>
+            <option value="teraplast">טרה פלסט</option>
+        </select>
+    </div>
     
-    <select id="vendorSelect" style="width:100%; padding:10px; margin-bottom:15px; border-radius:8px;">
-        <option value="yevuley_sade">יבולי שדה טמרה</option>
-        <option value="tfuchan">תפוכן</option>
-        <option value="teraplast">טרה פלסט</option>
-    </select>
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <strong>📁 לחץ כאן לבחירת חשבונית</strong>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    </div>
 
-    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">📷 בחר תמונה מהגלריה</button>
-    <input type="file" id="fileInput" accept="image/*" style="display: none;">
-
-    <div id="loader" style="display:none; margin:20px;">מנתח... נא להמתין ⏳</div>
-    <div id="msg" class="status"></div>
+    <div id="loader">ה-AI מנתח את התמונה... ⏳</div>
     <div id="results"></div>
+    <div id="errorBox" class="error-msg"></div>
 </div>
 
 <script>
-    const API_KEY = "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";
+    // המפתח החדש שלך - מנקים רווחים באופן אוטומטי
+    const RAW_KEY = "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";
+    const API_KEY = RAW_KEY.trim();
 
     const MASTER_DATA = {
-        "yevuley_sade": { "חומוס": 150, "סוכר": 48, "פול": 120 },
-        "tfuchan": { "ציפס": 148.75, "בצל": 5.4 },
+        "yevuley_sade": { "חומוס": 150, "פול": 120, "מלפפון": 50, "שיפקה": 38, "לפת": 60, "זיתים": 115, "סוכר": 48 },
+        "tfuchan": { "ציפס": 148.75, "כרובית": 149, "בצל": 5.4 },
+        "elkayam": { "קובה": 82.5 },
+        "tahini": { "טחינה": 238.45 },
         "teraplast": { "אשפתון": 125, "גביע": 150 }
     };
 
@@ -49,70 +60,83 @@
 
         const loader = document.getElementById('loader');
         const resultsDiv = document.getElementById('results');
-        const msg = document.getElementById('msg');
+        const errorBox = document.getElementById('errorBox');
         
         loader.style.display = 'block';
         resultsDiv.innerHTML = '';
-        msg.style.display = 'none';
+        errorBox.style.display = 'none';
 
         const reader = new FileReader();
         reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            
-            try {
-                // שימוש ב-Proxy לעקיפת חסימת הדפדפן
-                const proxyUrl = "https://corsproxy.io/?";
-                const targetUrl = "https://api.openai.com/v1/chat/completions";
-
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${API_KEY.trim()}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        model: "gpt-4o",
-                        messages: [{
-                            role: "user",
-                            content: [
-                                { type: "text", text: "Identify items and unit prices. Hebrew. JSON format: {\"items\":[{\"n\":\"name\",\"p\":10.5}]}" },
-                                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
-                            ]
-                        }],
-                        response_format: { type: "json_object" }
-                    })
-                });
-
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error?.message || "שגיאת שרת");
-
-                const items = JSON.parse(data.choices[0].message.content).items;
-                const vId = document.getElementById('vendorSelect').value;
-                
-                items.forEach(item => {
-                    const master = MASTER_DATA[vId];
-                    const matchKey = Object.keys(master).find(k => item.n.includes(k) || k.includes(item.n));
-                    const mPrice = matchKey ? master[matchKey] : null;
-                    
-                    resultsDiv.innerHTML += `
-                        <div style="border-bottom:1px solid #eee; padding:10px 0;">
-                            <strong>${item.n}</strong>: ${item.p}₪ 
-                            <br> ${mPrice ? (item.p > mPrice ? '<span style="color:red">⚠️ חריגה! מחירון: '+mPrice+'₪</span>' : '<span style="color:green">✅ תקין</span>') : '<span style="color:gray">❓ לא במחירון</span>'}
-                        </div>`;
-                });
-                msg.innerText = "הניתוח הושלם בהצלחה!";
-                msg.className = "status success";
-
-            } catch (err) {
-                msg.innerText = "תקלה: " + err.message;
-                msg.className = "status error";
-                msg.style.display = "block";
-            } finally {
-                loader.style.display = 'none';
-            }
+            const base64Image = reader.result.split(',')[1];
+            await processInvoice(base64Image);
         };
         reader.readAsDataURL(file);
     };
+
+    async function processInvoice(base64) {
+        try {
+            // שימוש ב-Proxyio כדי לעקוף את חסימת ה-CORS של GitHub
+            const proxyUrl = "https://corsproxy.io/?";
+            const targetUrl = "https://api.openai.com/v1/chat/completions";
+
+            const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${API_KEY}`, 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [{
+                        role: "user",
+                        content: [
+                            { type: "text", text: "Identify items and unit prices. Hebrew. Return ONLY JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
+                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+                        ]
+                    }],
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || "שגיאה לא ידועה בשרת");
+            }
+
+            displayResults(data.choices[0].message.content);
+        } catch (err) {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.style.display = 'block';
+            errorBox.innerText = "תקלה: " + err.message;
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+        }
+    }
+
+    function displayResults(jsonStr) {
+        const resultsDiv = document.getElementById('results');
+        const extracted = JSON.parse(jsonStr);
+        const vId = document.getElementById('vendorSelect').value;
+        const master = MASTER_DATA[vId];
+
+        extracted.items.forEach(item => {
+            const matchKey = Object.keys(master).find(k => item.n.includes(k) || k.includes(item.n));
+            const mPrice = matchKey ? master[matchKey] : null;
+            
+            resultsDiv.innerHTML += `
+                <div class="result-item">
+                    <div>
+                        <strong>${item.n}</strong><br>
+                        ${mPrice ? 
+                            (item.p > mPrice ? `<span class="bad">❌ חריגה! (מחירון: ${mPrice}₪)</span>` : `<span class="good">✅ תקין</span>`) 
+                            : `<span style="color:gray">❓ לא במחירון</span>`}
+                    </div>
+                    <div style="font-weight:bold">${item.p.toFixed(2)} ₪</div>
+                </div>`;
+        });
+    }
 </script>
 
 </body>
