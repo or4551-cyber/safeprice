@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PriceGuard Elite 🛡️</title>
     <style>
-        :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --bg: #f8fafc; }
+        :root { --primary: #2563eb; --bg: #f8fafc; }
         body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: right; }
         .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
         .upload-area { border: 2px dashed #3b82f6; padding: 40px; text-align: center; border-radius: 15px; cursor: pointer; background: #f0f7ff; margin-top: 20px; }
         #loader { display: none; color: var(--primary); font-weight: bold; margin: 20px 0; text-align: center; }
         .result-item { border-bottom: 1px solid #eee; padding: 12px 0; display: flex; justify-content: space-between; align-items: center; }
         .error-msg { background: #fee2e2; color: #b91c1c; padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 13px; display: none; direction: ltr; text-align: left; border: 1px solid #f87171; }
-        .bad { color: var(--danger); font-weight: bold; }
-        .good { color: var(--success); font-weight: bold; }
+        .bad { color: #ef4444; font-weight: bold; }
+        .good { color: #22c55e; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -42,12 +42,11 @@
 </div>
 
 <script>
-    // המפתח החדש שלך - מנקים רווחים באופן אוטומטי
-    const RAW_KEY = "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"
-    const API_KEY = RAW_KEY.trim();
+    // המפתח החדש שלך
+    const API_KEY = "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";
 
     const MASTER_DATA = {
-        "yevuley_sade": { "חומוס": 150, "פול": 120, "מלפפון": 50, "שיפקה": 38, "לפת": 60, "זיתים": 115, "סוכר": 48 },
+        "yevuley_sade": { "חומוס": 150, "פול": 120, "מלפפון": 50, "שיפקה": 38, "זיתים": 115, "סוכר": 48 },
         "tfuchan": { "ציפס": 148.75, "כרובית": 149, "בצל": 5.4 },
         "elkayam": { "קובה": 82.5 },
         "tahini": { "טחינה": 238.45 },
@@ -76,14 +75,10 @@
 
     async function processInvoice(base64) {
         try {
-            // שימוש ב-Proxyio כדי לעקוף את חסימת ה-CORS של GitHub
-            const proxyUrl = "https://corsproxy.io/?";
-            const targetUrl = "https://api.openai.com/v1/chat/completions";
-
-            const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: 'POST',
                 headers: { 
-                    'Authorization': `Bearer ${API_KEY}`, 
+                    'Authorization': `Bearer ${API_KEY.trim()}`, 
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -91,7 +86,7 @@
                     messages: [{
                         role: "user",
                         content: [
-                            { type: "text", text: "Identify items and unit prices. Hebrew. Return ONLY JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
+                            { type: "text", text: "Analyze invoice. Return JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
                             { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
                         ]
                     }],
@@ -100,12 +95,23 @@
             });
 
             const data = await response.json();
+            if (!response.ok) throw new Error(data.error?.message || "שגיאת שרת");
 
-            if (!response.ok) {
-                throw new Error(data.error?.message || "שגיאה לא ידועה בשרת");
-            }
+            const extracted = JSON.parse(data.choices[0].message.content);
+            const vId = document.getElementById('vendorSelect').value;
+            const master = MASTER_DATA[vId];
 
-            displayResults(data.choices[0].message.content);
+            extracted.items.forEach(item => {
+                const matchKey = Object.keys(master).find(k => item.n.includes(k) || k.includes(item.n));
+                const mPrice = matchKey ? master[matchKey] : null;
+                const isOver = mPrice && item.p > mPrice;
+                
+                document.getElementById('results').innerHTML += `
+                    <div class="result-item">
+                        <span>${item.n}</span>
+                        <span class="${isOver ? 'bad' : (mPrice ? 'good' : '')}">${item.p.toFixed(2)} ₪ ${isOver ? '(חריגה!)' : ''}</span>
+                    </div>`;
+            });
         } catch (err) {
             const errorBox = document.getElementById('errorBox');
             errorBox.style.display = 'block';
@@ -114,30 +120,6 @@
             document.getElementById('loader').style.display = 'none';
         }
     }
-
-    function displayResults(jsonStr) {
-        const resultsDiv = document.getElementById('results');
-        const extracted = JSON.parse(jsonStr);
-        const vId = document.getElementById('vendorSelect').value;
-        const master = MASTER_DATA[vId];
-
-        extracted.items.forEach(item => {
-            const matchKey = Object.keys(master).find(k => item.n.includes(k) || k.includes(item.n));
-            const mPrice = matchKey ? master[matchKey] : null;
-            
-            resultsDiv.innerHTML += `
-                <div class="result-item">
-                    <div>
-                        <strong>${item.n}</strong><br>
-                        ${mPrice ? 
-                            (item.p > mPrice ? `<span class="bad">❌ חריגה! (מחירון: ${mPrice}₪)</span>` : `<span class="good">✅ תקין</span>`) 
-                            : `<span style="color:gray">❓ לא במחירון</span>`}
-                    </div>
-                    <div style="font-weight:bold">${item.p.toFixed(2)} ₪</div>
-                </div>`;
-        });
-    }
 </script>
-
 </body>
 </html>
