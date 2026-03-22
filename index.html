@@ -55,7 +55,6 @@
 </div>
 
 <script>
-    // ה-API Key המעודכן שלך
     const API_KEY = "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";
 
     const MASTER_DATA = {
@@ -85,13 +84,12 @@
         reader.readAsDataURL(file);
     };
 
-   async function processInvoice(base64, vendorId) {
+    async function processInvoice(base64, vendorId) {
         try {
-            // הוספת פרוקסי לעקיפת חסימת הדפדפן (CORS)
-            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+            // שימוש ב-targetUrl ישיר - אם עדיין יש Failed to fetch, יש להפעיל את ה-CORS Proxy
             const targetUrl = "https://api.openai.com/v1/chat/completions";
 
-            const response = await fetch(targetUrl, { // אם ה-Proxy לא עובד, נסה להחזיר ל-targetUrl ישירות
+            const response = await fetch(targetUrl, {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${API_KEY}`, 
@@ -110,22 +108,12 @@
                 })
             });
 
-            if (response.status === 401) {
-                throw new Error("המפתח לא תקין או שאין יתרה כספית בחשבון OpenAI (Billing).");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error.message || "שגיאה בגישה ל-OpenAI");
             }
 
             const data = await response.json();
-            const extracted = JSON.parse(data.choices[0].message.content);
-            showResults(extracted.items, vendorId);
-        } catch (err) {
-            alert("שגיאה: " + err.message);
-        } finally {
-            document.getElementById('loader').style.display = 'none';
-        }
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            
             const extracted = JSON.parse(data.choices[0].message.content);
             showResults(extracted.items, vendorId);
         } catch (err) {
