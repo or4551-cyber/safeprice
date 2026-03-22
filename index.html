@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PriceGuard Elite - השוואת מחירים</title>
+    <style>
+        :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --bg: #f8fafc; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; line-height: 1.5; }
+        .container { max-width: 450px; margin: 0 auto; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        h1 { margin: 0 0 10px; font-size: 24px; text-align: center; color: #0f172a; }
+        .setup-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #64748b; }
+        select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; font-size: 16px; }
+        .upload-area { 
+            border: 2px dashed #3b82f6; padding: 40px 20px; text-align: center; 
+            border-radius: 15px; cursor: pointer; transition: all 0.2s; background: #f0f7ff;
+        }
+        #loader { display: none; text-align: center; margin: 20px 0; color: var(--primary); font-weight: bold; }
+        .result-item { border-bottom: 1px solid #f1f5f9; padding: 12px 0; }
+        .row-header { display: flex; justify-content: space-between; font-weight: 700; }
+        .status-msg { font-size: 13px; margin-top: 5px; display: inline-block; padding: 2px 6px; border-radius: 4px; }
+        .bad { background: #fee2e2; color: var(--danger); }
+        .good { background: #dcfce7; color: var(--success); }
+        .unknown { background: #fef9c3; color: #854d0e; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1>PriceGuard Elite 🛡️</h1>
+        
+        <div class="setup-group">
+            <label>1. בחר ספק לבדיקה:</label>
+            <select id="vendorSelect">
+                <option value="yevuley_sade">יבולי שדה טמרה</option>
+                <option value="tfuchan">תפוכן</option>
+                <option value="elkayam">חטיפי אלקיים</option>
+                <option value="tahini">מוטיפוד (טחינה)</option>
+                <option value="teraplast">טרה פלסט</option>
+            </select>
+        </div>
+
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <span style="font-size: 30px; display: block;">📁</span>
+            <strong>לחץ להעלאת תמונת חשבונית</strong>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        </div>
+
+        <div id="loader">ה-AI מנתח את החשבונית... 🧠</div>
+        <div id="results"></div>
+    </div>
+</div>
+
+<script>
+    // ה-API Key המעודכן שלך
+    const API_KEY = "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";
+
+    const MASTER_DATA = {
+        "yevuley_sade": { "חומוס מקומי 25 קג": 150, "פול אנגלי": 120, "מלפפון במלח": 50, "פלפל שיפקה": 38, "לפת דלי": 60, "זיתים סורי": 115, "שמן סויה": 115, "סוכר": 48 },
+        "tfuchan": { "ציפס סטייק": 148.75, "כרובית סנפרוסט": 149, "בצל קלוף": 5.4, "כרובית מהדרין": 220 },
+        "elkayam": { "קובה במילוי בשר": 82.5, "קובה צמחי": 82.5 },
+        "tahini": { "טחינה גולמית 18 קג": 238.45 },
+        "teraplast": { "אשפתון 75/90": 125, "גביע 1000": 150, "גביע 120": 240, "גביע 250": 230, "גביע 500": 287.17 }
+    };
+
+    document.getElementById('fileInput').onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const vendor = document.getElementById('vendorSelect').value;
+        const loader = document.getElementById('loader');
+        const resultsDiv = document.getElementById('results');
+        
+        loader.style.display = 'block';
+        resultsDiv.innerHTML = '';
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64Image = reader.result.split(',')[1];
+            await processInvoice(base64Image, vendor);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    async function processInvoice(base64, vendorId) {
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "gpt-4o",
+                    messages: [{
+                        role: "user",
+                        content: [
+                            { type: "text", text: "Extract items and unit prices from this invoice. Return ONLY JSON: {\"items\": [{\"n\": \"name\", \"p\": price_number}]}" },
+                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+                        ]
+                    }],
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            
+            const extracted = JSON.parse(data.choices[0].message.content);
+            showResults(extracted.items, vendorId);
+        } catch (err) {
+            alert("שגיאה: " + err.message);
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+        }
+    }
+
+    function showResults(items, vId) {
+        const resultsDiv = document.getElementById('results');
+        const master = MASTER_DATA[vId];
+
+        items.forEach(item => {
+            const matchKey = Object.keys(master).find(k => 
+                item.n.toLowerCase().includes(k.toLowerCase()) || 
+                k.toLowerCase().includes(item.n.toLowerCase())
+            );
+            
+            const mPrice = matchKey ? master[matchKey] : null;
+            const diff = mPrice ? (item.p - mPrice).toFixed(2) : 0;
+
+            resultsDiv.innerHTML += `
+                <div class="result-item">
+                    <div class="row-header">
+                        <span>${item.n}</span>
+                        <span>${item.p.toFixed(2)} ₪</span>
+                    </div>
+                    ${mPrice ? 
+                        (item.p > mPrice ? 
+                            `<span class="status-msg bad">⚠️ חריגה (מחירון: ${mPrice} ₪ | הפרש: ${diff} ₪)</span>` : 
+                            `<span class="status-msg good">✅ תקין</span>`) 
+                        : `<span class="status-msg unknown">❓ לא במחירון</span>`
+                    }
+                </div>`;
+        });
+    }
+</script>
+
+</body>
+</html>
